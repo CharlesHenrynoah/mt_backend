@@ -1,44 +1,74 @@
 import asyncio
-from user_agent import UserAgent
-from url_agent import URLProcessorAgent
-from scraper_agent import ScraperAgent
+from spade import quit_spade
+from agents.auth_agent.auth_agent import AuthAgent
+from agents.search_agent.search_agent import SearchAgent
+from agents.data_agent.data_agent import DataAgent
+from agents.external_agent.external_agent import ExternalAgent
 from config import (
     USER_AGENT_JID,
-    URL_AGENT_JID,
-    SCRAPER_AGENT_JID,
-    AGENT_PASSWORD
+    AUTH_AGENT_JID,
+    SEARCH_AGENT_JID,
+    DATA_AGENT_JID,
+    EXTERNAL_AGENT_JID,
+    AGENT_PASSWORD,
+    GEMINI_API_KEY,
+    JWT_SECRET_KEY
 )
+import logging
+
+# Configuration du logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 async def main():
     try:
-        # Créer et démarrer les agents
-        user_agent = UserAgent(USER_AGENT_JID, AGENT_PASSWORD)
-        url_agent = URLProcessorAgent(URL_AGENT_JID, AGENT_PASSWORD)
-        scraper_agent = ScraperAgent(SCRAPER_AGENT_JID, AGENT_PASSWORD)
+        # Créer les agents
+        auth_agent = AuthAgent(AUTH_AGENT_JID, AGENT_PASSWORD, JWT_SECRET_KEY)
+        search_agent = SearchAgent(SEARCH_AGENT_JID, AGENT_PASSWORD, GEMINI_API_KEY)
+        data_agent = DataAgent(DATA_AGENT_JID, AGENT_PASSWORD)
+        external_agent = ExternalAgent(EXTERNAL_AGENT_JID, AGENT_PASSWORD)
         
-        print("Démarrage des agents...")
+        # Démarrer les agents
+        logger.info("Démarrage des agents...")
         
-        await user_agent.start()
-        await url_agent.start()
-        await scraper_agent.start()
+        await auth_agent.start()
+        logger.info("Agent d'authentification démarré")
         
-        print("Tous les agents sont démarrés et prêts !")
-        print("\nVous pouvez maintenant entrer vos requêtes.")
-        print("Exemple: 'Je cherche un développeur en Inde à moins de 50 euros'")
-        print("Tapez 'quit' pour quitter.")
+        await search_agent.start()
+        logger.info("Agent de recherche démarré")
         
-        # Attendre que l'utilisateur veuille quitter
-        while user_agent.is_alive():
+        await data_agent.start()
+        logger.info("Agent de données démarré")
+        
+        await external_agent.start()
+        logger.info("Agent externe démarré")
+        
+        logger.info("Tous les agents sont démarrés et prêts !")
+        logger.info("\nUtilisez l'API REST pour interagir avec le système.")
+        logger.info("Documentation de l'API disponible sur: http://localhost:8000/docs")
+        
+        # Garder le programme en vie
+        while all([
+            auth_agent.is_alive(),
+            search_agent.is_alive(),
+            data_agent.is_alive(),
+            external_agent.is_alive()
+        ]):
             await asyncio.sleep(1)
-        
+            
+    except KeyboardInterrupt:
+        logger.info("Arrêt demandé par l'utilisateur...")
     except Exception as e:
-        print(f"Une erreur s'est produite: {str(e)}")
-    
+        logger.error(f"Une erreur s'est produite: {str(e)}")
     finally:
         # Arrêter tous les agents
-        await user_agent.stop()
-        await url_agent.stop()
-        await scraper_agent.stop()
+        logger.info("Arrêt des agents...")
+        await auth_agent.stop()
+        await search_agent.stop()
+        await data_agent.stop()
+        await external_agent.stop()
+        await quit_spade()
+        logger.info("Système arrêté.")
 
 if __name__ == "__main__":
     asyncio.run(main())
